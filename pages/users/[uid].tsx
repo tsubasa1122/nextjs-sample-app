@@ -37,6 +37,7 @@ export default function UserShow() {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setIsSending(true);
 
     await firebase.firestore().collection('questions').add({
       senderUid: firebase.auth().currentUser.uid,
@@ -46,6 +47,7 @@ export default function UserShow() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
+    setIsSending(false);
     setBody('');
     alert('質問を送信しました');
   }
@@ -68,9 +70,16 @@ export default function UserShow() {
                   required
                 ></textarea>
                 <div className="m-3">
-                  <button type="submit" className="btn btn-primary">
-                    質問を送信する
-                  </button>
+                  {isSending ? (
+                    <div
+                      className="spinner-border text-secondary"
+                      role="status"
+                    ></div>
+                  ) : (
+                    <button type="submit" className="btn btn-primary">
+                      質問を送信する
+                    </button>
+                  )}
                 </div>
               </form>
             </div>
