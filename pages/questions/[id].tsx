@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { firestore } from 'firebase/app';
 import Layout from '../../components/Layout';
 import { Question } from '../../models/Question';
+import { Answer } from '../../models/Answer';
 import { useAuthentication } from '../../hooks/authentication';
 
 type Query = {
@@ -16,6 +17,7 @@ export default function QuestionsShow() {
   const [body, setBody] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [question, setQuestion] = useState<Question>(null);
+  const [answer, setAnswer] = useState<Answer>(null);
 
   async function loadData() {
     if (query.id === undefined) {
@@ -33,6 +35,23 @@ export default function QuestionsShow() {
     const gotQuestion = questionDoc.data() as Question;
     gotQuestion.id = questionDoc.id;
     setQuestion(gotQuestion);
+
+    if (!gotQuestion.isReplied) {
+      return;
+    }
+
+    const answerSnapshot = await firestore()
+      .collection('answers')
+      .where('questionId', '==', gotQuestion.id)
+      .limit(1)
+      .get();
+    if (answerSnapshot.empty) {
+      return;
+    }
+
+    const gotAnswer = answerSnapshot.docs[0].data() as Answer;
+    gotAnswer.id = answerSnapshot.docs[0].id;
+    setAnswer(gotAnswer);
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -50,7 +69,14 @@ export default function QuestionsShow() {
         isReplied: true,
       });
     });
-
+    const now = new Date().getTime();
+    setAnswer({
+      id: '',
+      uid: user.uid,
+      questionId: question.id,
+      body,
+      createdAt: new firestore.Timestamp(now / 1000, now % 1000),
+    });
     setIsSending(false);
   }
 
@@ -63,35 +89,44 @@ export default function QuestionsShow() {
       <div className="row justify-content-center">
         <div className="col-12 col-md-6">
           {question && (
-            <div className="card">
-              <div className="card-body">{question.body}</div>
-              <section className="text-center mt-4">
-                <h2 className="h4">回答する</h2>
+            <>
+              <div className="card">
+                <div className="card-body">{question.body}</div>
+              </div>
 
-                <form onSubmit={onSubmit}>
-                  <textarea
-                    className="form-control"
-                    placeholder="おげんきですか？"
-                    rows={6}
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    required
-                  ></textarea>
-                  <div className="m-3">
-                    {isSending ? (
-                      <div
-                        className="spinner-border text-secondary"
-                        role="status"
-                      ></div>
-                    ) : (
-                      <button type="submit" className="btn btn-primary">
-                        回答する
-                      </button>
-                    )}
+              <section className="text-center mt-4">
+                <h2 className="h4">回答</h2>
+
+                {answer === null ? (
+                  <form onSubmit={onSubmit}>
+                    <textarea
+                      className="form-control"
+                      placeholder="おげんきですか？"
+                      rows={6}
+                      value={body}
+                      onChange={(e) => setBody(e.target.value)}
+                      required
+                    ></textarea>
+                    <div className="m-3">
+                      {isSending ? (
+                        <div
+                          className="spinner-border text-secondary"
+                          role="status"
+                        ></div>
+                      ) : (
+                        <button type="submit" className="btn btn-primary">
+                          回答する
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                ) : (
+                  <div className="card">
+                    <div className="card-body text-left">{answer.body}</div>
                   </div>
-                </form>
+                )}
               </section>
-            </div>
+            </>
           )}
         </div>
       </div>
